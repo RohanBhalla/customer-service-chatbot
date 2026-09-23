@@ -11,6 +11,11 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 ## AWS resources created
 | Resource | Name | Region | Notes |
 |----------|------|--------|-------|
+| SQS queue (Q1) | `dining-requests-q1` | us-east-1 | https://sqs.us-east-1.amazonaws.com/088850687383/dining-requests-q1 ; retention 1 day, visibility timeout 60s |
+| Lambda | `LF1` (python3.12) | us-east-1 | Lex code hook; env `QUEUE_URL`; `lambdas/lf1-lex-hook/lambda_function.py` |
+| IAM role | `lf1-lex-hook-role` | global | basic exec + `sqs:SendMessage` on Q1 |
+| IAM role | `lex-hw1-bot-role` | global | Lex V2 bot service role (Polly/Comprehend) |
+| Lex V2 bot | `DiningConcierge` (id `R0153OSV9Z`) | us-east-1 | en_US; version 1; alias `prod` = `R4JQFJKHQG`; `TestBotAlias` (DRAFT) also hooked to LF1; built by `scripts/setup_lex_bot.py` |
 | API Gateway REST API | `ai-customer-service-api` (id `hlvxdz60d2`) | us-east-1 | stage `v1`; `POST /chatbot` → LF0 (Lambda proxy), `OPTIONS` mock for CORS, auth NONE |
 | Lambda | `LF0` (python3.12) | us-east-1 | `lambdas/lf0-chat-api/lambda_function.py` |
 | IAM role | `lf0-chat-api-role` | global | Lambda trust + `AWSLambdaBasicExecutionRole` |
@@ -28,3 +33,11 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 - SDK generated with `aws apigateway get-sdk`; only `apigClient.js` replaced in the frontend (starter `lib/` kept, since `chat.html` references its file names).
 - Auth is NONE (the starter builds the client with no credentials).
 - Gotcha: in zsh, `$R:lambda` is parsed as a `:l` modifier — use `${R}:lambda`.
+
+## Step 3 — Lex + LF1 + SQS
+- Intents: `GreetingIntent`, `ThankYouIntent`, `DiningSuggestionsIntent` (slots in order: Location, Cuisine, NumberOfPeople, DiningTime, Email).
+- Custom slot types: `CuisineType` (Chinese, Japanese, Italian, Mexican, Indian, Thai — these are the cuisines Step 5 must scrape) and `LocationType` (original-value resolution, so unknown cities reach LF1 and get a friendly rejection).
+- LF1: dialog hook validates location (Manhattan/NYC aliases only), cuisine, party size 1–20, email; fulfillment hook sends `{location, cuisine, diningTime, numberOfPeople, email}` to Q1 and confirms.
+- Tested via `aws lexv2-runtime recognize-text` with the PDF's example conversation (New Delhi rejected → Manhattan accepted → message in Q1). Test messages purged from Q1.
+- Gotchas: the Lex locale must be `NotBuilt` before adding slot types; a fresh bot version isn't describable for a few seconds; boto3 `list_bots` isn't pageable. Bot setup: `scripts/setup_lex_bot.py` (venv in `.venv`, git-ignored).
+- LF0 still returns the boilerplate — it calls Lex in Step 4.

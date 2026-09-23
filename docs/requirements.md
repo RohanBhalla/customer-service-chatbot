@@ -24,16 +24,16 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 - [x] End-to-end: frontend → API → LF0 → reply shown in chat
 
 ## Step 3 — Lex bot + LF1 code hook + SQS (20 pts) — PDF §3
-- [ ] Create SQS queue **Q1**
-- [ ] Create Lex bot (note: Lex V2 is the current console)
-- [ ] Intents: `GreetingIntent`, `ThankYouIntent`, `DiningSuggestionsIntent`
-- [ ] Create LF1 and attach as Lex code hook
-- [ ] GreetingIntent → "Hi there, how can I help?"; ThankYouIntent → "You're welcome."
-- [ ] DiningSuggestionsIntent collects: Location, Cuisine, Dining Time, Number of people, Email
-- [ ] Validate slots (e.g. reject unsupported locations — only Manhattan; validate cuisine)
-- [ ] Push collected info to Q1
-- [ ] Confirm to user the request was received and they'll be emailed
-- [ ] Train and test in the Lex console
+- [x] Create SQS queue **Q1**
+- [x] Create Lex bot (note: Lex V2 is the current console)
+- [x] Intents: `GreetingIntent`, `ThankYouIntent`, `DiningSuggestionsIntent`
+- [x] Create LF1 and attach as Lex code hook
+- [x] GreetingIntent → "Hi there, how can I help?"; ThankYouIntent → "You're welcome."
+- [x] DiningSuggestionsIntent collects: Location, Cuisine, Dining Time, Number of people, Email
+- [x] Validate slots (e.g. reject unsupported locations — only Manhattan; validate cuisine)
+- [x] Push collected info to Q1
+- [x] Confirm to user the request was received and they'll be emailed
+- [x] Train and test (built via script; tested with the Lex runtime API; console test pane also available on TestBotAlias)
 
 ## Step 4 — Integrate Lex into the chat API (10 pts) — PDF §4
 - [ ] LF0 uses the AWS SDK (boto3) to call Lex: extract text from API request → send to Lex → wait → return Lex response as API response
