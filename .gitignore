@@ -1,0 +1,29 @@
+# Secrets / credentials
+.env
+*.pem
+*.key
+credentials*
+aws-exports*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Lambda build artifacts
+*.zip
+build/
+dist/
+
+# Scraper output
+scripts/*.json
+scripts/*.csv
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
