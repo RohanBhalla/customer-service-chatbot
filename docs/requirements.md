@@ -10,18 +10,18 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 
 ## Step 1 — Frontend on S3 (10 pts) — PDF §1
 - [x] Clone/adapt starter: https://github.com/aditya491929/cloud-hw1-starter into `frontend/`
-- [ ] Repurpose it to talk to our chatbot API
+- [x] Repurpose it to talk to our chatbot API
 - [x] Create S3 bucket with static website hosting enabled
 - [x] Upload frontend; site loads from the S3 website endpoint
 
 ## Step 2 — API Gateway + LF0 boilerplate (15 pts) — PDF §2
-- [ ] Get Swagger spec: https://github.com/aditya491929/cloud-hw1-starter/blob/master/swagger/swagger.yaml (visualize at editor.swagger.io)
-- [ ] Create LF0 Lambda implementing the spec's request/response model
-- [ ] LF0 returns boilerplate: "I'm still under development. Please come back later."
-- [ ] Import Swagger into API Gateway; wire methods to LF0
-- [ ] Enable CORS on API methods
-- [ ] Generate the API Gateway JavaScript SDK and use it in the frontend
-- [ ] End-to-end: frontend → API → LF0 → reply shown in chat
+- [x] Get Swagger spec: https://github.com/aditya491929/cloud-hw1-starter/blob/master/swagger/swagger.yaml (visualize at editor.swagger.io)
+- [x] Create LF0 Lambda implementing the spec's request/response model
+- [x] LF0 returns boilerplate: "I'm still under development. Please come back later."
+- [x] Import Swagger into API Gateway; wire methods to LF0
+- [x] Enable CORS on API methods
+- [x] Generate the API Gateway JavaScript SDK and use it in the frontend
+- [x] End-to-end: frontend → API → LF0 → reply shown in chat
 
 ## Step 3 — Lex bot + LF1 code hook + SQS (20 pts) — PDF §3
 - [ ] Create SQS queue **Q1**

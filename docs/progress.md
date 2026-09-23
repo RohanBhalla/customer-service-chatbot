@@ -11,9 +11,20 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 ## AWS resources created
 | Resource | Name | Region | Notes |
 |----------|------|--------|-------|
+| API Gateway REST API | `ai-customer-service-api` (id `hlvxdz60d2`) | us-east-1 | stage `v1`; `POST /chatbot` → LF0 (Lambda proxy), `OPTIONS` mock for CORS, auth NONE |
+| Lambda | `LF0` (python3.12) | us-east-1 | `lambdas/lf0-chat-api/lambda_function.py` |
+| IAM role | `lf0-chat-api-role` | global | Lambda trust + `AWSLambdaBasicExecutionRole` |
 | S3 bucket (static website, public read) | `cc-hw1-chatbot-frontend-088850687383` | us-east-1 | http://cc-hw1-chatbot-frontend-088850687383.s3-website-us-east-1.amazonaws.com — index/error doc `chat.html`; redeploy with `scripts/deploy_frontend.sh` |
 
 ## Step 1 — Frontend on S3
 - Starter copied into `frontend/`; Swagger spec in `api/swagger/swagger.yaml`.
 - Bucket created, Block Public Access off, public-read bucket policy, website hosting on. Site returns HTTP 200.
 - Chat will show errors until Step 2 replaces the placeholder `apigClient.js` with the generated SDK.
+
+## Step 2 — API Gateway + LF0
+- LF0 created (Python 3.12, role `lf0-chat-api-role`), returns the boilerplate message in the swagger `BotResponse` shape.
+- Swagger imported into API Gateway (`hlvxdz60d2`), `POST /chatbot` wired to LF0 with Lambda proxy integration; `OPTIONS` MOCK returns CORS headers; LF0 also returns CORS headers. Deployed to stage `v1`.
+- Invoke URL: https://hlvxdz60d2.execute-api.us-east-1.amazonaws.com/v1/chatbot
+- SDK generated with `aws apigateway get-sdk`; only `apigClient.js` replaced in the frontend (starter `lib/` kept, since `chat.html` references its file names).
+- Auth is NONE (the starter builds the client with no credentials).
+- Gotcha: in zsh, `$R:lambda` is parsed as a `:l` modifier — use `${R}:lambda`.
