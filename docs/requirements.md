@@ -9,10 +9,10 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 ---
 
 ## Step 1 — Frontend on S3 (10 pts) — PDF §1
-- [ ] Clone/adapt starter: https://github.com/aditya491929/cloud-hw1-starter into `frontend/`
+- [x] Clone/adapt starter: https://github.com/aditya491929/cloud-hw1-starter into `frontend/`
 - [ ] Repurpose it to talk to our chatbot API
-- [ ] Create S3 bucket with static website hosting enabled
-- [ ] Upload frontend; site loads from the S3 website endpoint
+- [x] Create S3 bucket with static website hosting enabled
+- [x] Upload frontend; site loads from the S3 website endpoint
 
 ## Step 2 — API Gateway + LF0 boilerplate (15 pts) — PDF §2
 - [ ] Get Swagger spec: https://github.com/aditya491929/cloud-hw1-starter/blob/master/swagger/swagger.yaml (visualize at editor.swagger.io)
