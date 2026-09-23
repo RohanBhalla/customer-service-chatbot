@@ -17,8 +17,8 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 | IAM role | `lex-hw1-bot-role` | global | Lex V2 bot service role (Polly/Comprehend) |
 | Lex V2 bot | `DiningConcierge` (id `R0153OSV9Z`) | us-east-1 | en_US; version 1; alias `prod` = `R4JQFJKHQG`; `TestBotAlias` (DRAFT) also hooked to LF1; built by `scripts/setup_lex_bot.py` |
 | API Gateway REST API | `ai-customer-service-api` (id `hlvxdz60d2`) | us-east-1 | stage `v1`; `POST /chatbot` → LF0 (Lambda proxy), `OPTIONS` mock for CORS, auth NONE |
-| Lambda | `LF0` (python3.12) | us-east-1 | `lambdas/lf0-chat-api/lambda_function.py` |
-| IAM role | `lf0-chat-api-role` | global | Lambda trust + `AWSLambdaBasicExecutionRole` |
+| Lambda | `LF0` (python3.12) | us-east-1 | `lambdas/lf0-chat-api/lambda_function.py`; env `LEX_BOT_ID`, `LEX_BOT_ALIAS_ID`, `LEX_LOCALE_ID` |
+| IAM role | `lf0-chat-api-role` | global | Lambda trust + `AWSLambdaBasicExecutionRole` + inline `call-lex` (`lex:RecognizeText` on the prod alias) |
 | S3 bucket (static website, public read) | `cc-hw1-chatbot-frontend-088850687383` | us-east-1 | http://cc-hw1-chatbot-frontend-088850687383.s3-website-us-east-1.amazonaws.com — index/error doc `chat.html`; redeploy with `scripts/deploy_frontend.sh` |
 
 ## Step 1 — Frontend on S3
@@ -41,3 +41,6 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 - Tested via `aws lexv2-runtime recognize-text` with the PDF's example conversation (New Delhi rejected → Manhattan accepted → message in Q1). Test messages purged from Q1.
 - Gotchas: the Lex locale must be `NotBuilt` before adding slot types; a fresh bot version isn't describable for a few seconds; boto3 `list_bots` isn't pageable. Bot setup: `scripts/setup_lex_bot.py` (venv in `.venv`, git-ignored).
 - LF0 still returns the boilerplate — it calls Lex in Step 4.
+
+## Step 4 — Lex integrated into LF0
+- LF0 calls Lex `RecognizeText`; session id from the browser goes in `messages[0].unstructured.id`. Details and test results in `DEVELOPMENT_NOTES.md`.

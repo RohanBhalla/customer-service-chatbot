@@ -9,6 +9,7 @@ emails restaurant suggestions (from Yelp data in DynamoDB + OpenSearch) via SES.
 Full assignment: [`docs/CC_Fall2026_Assignment1.pdf`](docs/CC_Fall2026_Assignment1.pdf)
 Requirements checklist: [`docs/requirements.md`](docs/requirements.md)
 Progress log: [`docs/progress.md`](docs/progress.md)
+Development notes (issues, fixes, commands): [`docs/DEVELOPMENT_NOTES.md`](docs/DEVELOPMENT_NOTES.md)
 
 ## Architecture
 

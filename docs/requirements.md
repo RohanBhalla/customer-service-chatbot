@@ -36,8 +36,8 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 - [x] Train and test (built via script; tested with the Lex runtime API; console test pane also available on TestBotAlias)
 
 ## Step 4 — Integrate Lex into the chat API (10 pts) — PDF §4
-- [ ] LF0 uses the AWS SDK (boto3) to call Lex: extract text from API request → send to Lex → wait → return Lex response as API response
-- [ ] End-to-end test through the frontend
+- [x] LF0 uses the AWS SDK (boto3) to call Lex: extract text from API request → send to Lex → wait → return Lex response as API response
+- [x] End-to-end test through the API (curl, multi-turn); browser check on the live site by the user pending
 
 ## Step 5 — Yelp scrape → DynamoDB (15 pts) — PDF §5
 - [ ] Yelp API key

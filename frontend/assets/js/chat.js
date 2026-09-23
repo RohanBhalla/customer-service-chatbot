@@ -25,12 +25,31 @@ $(document).ready(function() {
     }
   }
 
+  // Stable per-browser id so Lex keeps conversation state across messages
+  // (and, for the extra credit, remembers a returning user's last search).
+  function getSessionId() {
+    var key = 'concierge-session-id';
+    try {
+      var id = localStorage.getItem(key);
+      if (!id) {
+        id = 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(key, id);
+      }
+      return id;
+    } catch (e) {
+      // localStorage unavailable: fall back to an id that lasts for this page load
+      window.__sessionId = window.__sessionId || 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      return window.__sessionId;
+    }
+  }
+
   function callChatbotApi(message) {
     // params, body, additionalParams
     return sdk.chatbotPost({}, {
       messages: [{
         type: 'unstructured',
         unstructured: {
+          id: getSessionId(),
           text: message
         }
       }]
