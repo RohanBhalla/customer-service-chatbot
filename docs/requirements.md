@@ -40,12 +40,12 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 - [x] End-to-end test through the API (curl, multi-turn); browser check on the live site by the user pending
 
 ## Step 5 — Yelp scrape → DynamoDB (15 pts) — PDF §5
-- [ ] Yelp API key
-- [ ] ≥5 self-chosen cuisines, ~200 restaurants each, 1,000+ total, Manhattan
-- [ ] No duplicates (dedupe on Business ID)
-- [ ] DynamoDB table `yelp-restaurants`
-- [ ] Store: Business ID, Name, Address, Coordinates, Number of Reviews, Rating, Zip Code
-- [ ] Each item has `insertedAtTimestamp`
+- [x] Yelp API key
+- [x] 6 cuisines, ~200 restaurants each, 1,198 total, Manhattan (Indian has 198 after removing 2 duplicate listings)
+- [x] No duplicates (dedupe on Business ID)
+- [x] DynamoDB table `yelp-restaurants`
+- [x] Store: Business ID, Name, Address, Coordinates, Number of Reviews, Rating, Zip Code
+- [x] Each item has `insertedAtTimestamp`
 
 ## Step 6 — Suggestions module LF2 + SES + EventBridge (15 pts) — PDF §7
 - [ ] Create LF2 as queue worker: pull message from Q1

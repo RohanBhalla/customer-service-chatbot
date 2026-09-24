@@ -17,7 +17,7 @@ Newest steps go at the bottom of the step log. See also:
 | 2 | API Gateway + LF0 boilerplate | 15 | Done |
 | 3 | Lex bot + LF1 + SQS | 20 | Done |
 | 4 | Lex integrated into chat API | 10 | Done — browser check by user pending |
-| 5 | Yelp scrape → DynamoDB | 15 | Not started |
+| 5 | Yelp scrape → DynamoDB | 15 | Done (1,198 restaurants) |
 | 6 | LF2 + SES + EventBridge | 15 | Not started |
 | 7 | OpenSearch | 15 | Not started (do last; costs money) |
 | EC | Conversation state | 10 | Not started |
@@ -30,7 +30,7 @@ Browser (S3 site) ──POST /chatbot──▶ API Gateway (v1) ──▶ LF0 �
                                                                                       ▼
                                                                                      LF1 ──SendMessage──▶ SQS Q1 (dining-requests-q1)
 ```
-Not yet built: LF2 (queue worker), DynamoDB `yelp-restaurants`, OpenSearch, SES, EventBridge schedule, extra-credit state table.
+DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it yet. Not yet built: LF2 (queue worker), OpenSearch, SES, EventBridge schedule, extra-credit state table.
 
 ## Design decisions
 
@@ -129,6 +129,24 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 - Full multi-turn conversation through the real API URL with one session id: greeting → New Delhi rejected → Manhattan → Italian → 4 → 8pm → email → fulfilled → "thanks". Message correct in Q1, then purged.
 - `{}` body → 400 "Invalid request body"; blank text → 400 "Message text is empty".
 - **Not yet verified in a real browser** (CORS from the S3 origin was verified with curl preflight in Step 2). User to open the site and run the conversation.
+
+### Step 5 — Yelp scrape → DynamoDB
+**Done**
+- Tested the Yelp Fusion key first with one search (HTTP 200). Response headers showed **300 calls/day**, resetting at 00:00 UTC — so results are cached locally and re-runs are avoided.
+- DynamoDB table `yelp-restaurants`: on-demand billing, hash key `BusinessID` (S).
+- `scripts/scrape_yelp.py`: for each of the 6 cuisines, searches `term="<cuisine> restaurants"` + Yelp `categories` alias (`indpak` for Indian), starting with "Manhattan, NY" (4 pages × 50) and falling back to 16 neighborhood queries until 200 are collected. Keeps only Manhattan zips (100xx–102xx) with coordinates. Dedupes on BusinessID across all cuisines (a restaurant is kept under the first cuisine that found it). Guard stops at 250 API calls. Writes `scripts/restaurants.json` (git-ignored).
+- `scripts/load_dynamodb.py`: reads the JSON (floats parsed as `Decimal`, since DynamoDB has no float type), stamps `insertedAtTimestamp` (UTC ISO-8601), writes with `batch_writer`. Re-runnable (keyed by BusinessID).
+- Item shape: `BusinessID, Name, Address, Coordinates{latitude,longitude}, NumberOfReviews, Rating, ZipCode, Cuisine, insertedAtTimestamp`. `Cuisine` is extra (not in the PDF list) — needed to load OpenSearch in Step 7.
+
+**Issues**
+1. *`create-table` failed with `zsh: no matches found: TableDescription.[TableName,TableStatus]`.* zsh treats unquoted `[...]` as a glob. The command never ran. → Quote JMESPath queries: `--query 'TableDescription.[TableName,TableStatus]'`.
+2. *Two duplicate listings.* Validation found 2 restaurants with the same name + address under different Yelp ids (Bawarchi Indian Cuisine, 1546 Madison Ave; Aamber Indian Vegan, 2636 Broadway). The PDF says no duplicates, so they were dropped from the cache and the scraper now also dedupes on (name, address). Result: Indian = 198, others 200.
+
+**Verify**
+- Scrape: 6 × 200 = 1,200 in 55 API calls (quota used ≈ 56 of 300 that day), all fields present, coordinates inside Manhattan, ids unique.
+- Live DynamoDB scan: 1,198 items; per cuisine 200/200/200/200/198/200; 0 items missing `insertedAtTimestamp`.
+
+**Notes:** the key lives only in `.env` (git-ignored, confirmed with `git check-ignore`); scripts read it at run time and never print it.
 
 ---
 

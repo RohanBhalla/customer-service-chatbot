@@ -11,6 +11,7 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 ## AWS resources created
 | Resource | Name | Region | Notes |
 |----------|------|--------|-------|
+| DynamoDB table | `yelp-restaurants` | us-east-1 | on-demand; key `BusinessID` (S); 1,198 items; attrs BusinessID, Name, Address, Coordinates, NumberOfReviews, Rating, ZipCode, Cuisine, insertedAtTimestamp |
 | SQS queue (Q1) | `dining-requests-q1` | us-east-1 | https://sqs.us-east-1.amazonaws.com/088850687383/dining-requests-q1 ; retention 1 day, visibility timeout 60s |
 | Lambda | `LF1` (python3.12) | us-east-1 | Lex code hook; env `QUEUE_URL`; `lambdas/lf1-lex-hook/lambda_function.py` |
 | IAM role | `lf1-lex-hook-role` | global | basic exec + `sqs:SendMessage` on Q1 |
@@ -44,3 +45,6 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 
 ## Step 4 — Lex integrated into LF0
 - LF0 calls Lex `RecognizeText`; session id from the browser goes in `messages[0].unstructured.id`. Details and test results in `DEVELOPMENT_NOTES.md`.
+
+## Step 5 — Yelp → DynamoDB
+- `scripts/scrape_yelp.py` → `scripts/restaurants.json` (git-ignored); `scripts/load_dynamodb.py` → table. 1,198 items. Details in `DEVELOPMENT_NOTES.md`.
