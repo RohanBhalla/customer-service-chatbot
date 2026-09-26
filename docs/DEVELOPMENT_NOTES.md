@@ -146,6 +146,8 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 - Scrape: 6 × 200 = 1,200 in 55 API calls (quota used ≈ 56 of 300 that day), all fields present, coordinates inside Manhattan, ids unique.
 - Live DynamoDB scan: 1,198 items; per cuisine 200/200/200/200/198/200; 0 items missing `insertedAtTimestamp`.
 
+**Where the data lives:** live copy = DynamoDB `yelp-restaurants` (1,198 items). Local copies (both git-ignored): `data/yelp-restaurants.json` (export of the table incl. `insertedAtTimestamp`, taken 2026-09-26) and `scripts/restaurants.json` (raw scraper output, no timestamps). Re-export any time by scanning the table; reload with `scripts/load_dynamodb.py`. Kept out of git because Yelp's API terms limit storing/redistributing its content — remove the `data/*.json` line from `.gitignore` if you decide to commit it.
+
 **Notes:** the key lives only in `.env` (git-ignored, confirmed with `git check-ignore`); scripts read it at run time and never print it.
 
 ### Step 6 — LF2 queue worker, SES, EventBridge
