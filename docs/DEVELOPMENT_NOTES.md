@@ -18,7 +18,7 @@ Newest steps go at the bottom of the step log. See also:
 | 3 | Lex bot + LF1 + SQS | 20 | Done |
 | 4 | Lex integrated into chat API | 10 | Done — browser check by user pending |
 | 5 | Yelp scrape → DynamoDB | 15 | Done (1,198 restaurants) |
-| 6 | LF2 + SES + EventBridge | 15 | In progress — LF2 + schedule live; waiting on SES verification for a real send |
+| 6 | LF2 + SES + EventBridge | 15 | Done except the OpenSearch ID lookup (DynamoDB fallback in use until Step 7) |
 | 7 | OpenSearch | 15 | Not started (do last; costs money) |
 | EC | Conversation state | 10 | Not started |
 
@@ -148,7 +148,7 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 
 **Notes:** the key lives only in `.env` (git-ignored, confirmed with `git check-ignore`); scripts read it at run time and never print it.
 
-### Step 6 — LF2 queue worker, SES, EventBridge (in progress)
+### Step 6 — LF2 queue worker, SES, EventBridge
 **Done**
 - SES (sandbox: 200 emails/day, 1/s): started verification of the sender address from `.env` (`aws sesv2 create-email-identity`). A verification email is sent to it; the link must be clicked before sending works. In sandbox the recipient must be verified too (using the same address as sender and recipient is simplest).
 - LF2 (Python 3.12, 60 s timeout, role `lf2-queue-worker-role`): each run receives up to 10 messages from Q1 (2 s long-poll), and for each one gets random restaurant IDs for the cuisine, fetches details from DynamoDB (`BatchGetItem`), formats and sends the email through SES, and only then deletes the message. On failure the message is left to reappear after the 60 s visibility timeout; after 3 receives it is dropped so one bad message can't loop for a day.
@@ -165,7 +165,8 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 **Verify so far**
 - Local test with real AWS credentials: lookup for `japanese`/`indian`/`thai` returns correct-cuisine restaurants; details fetched; email text formatted correctly (singular/plural, 12-hour time).
 - Scheduled runs succeed with `processed=0 failed=0 received=0` on the empty queue.
-- **Not yet verified:** an actual SES send and the full chat → email flow (blocked on SES verification).
+- **End-to-end test (after the SES link was clicked):** a full conversation through the API (Hello → suggestions → Manhattan → Japanese → 2 → 7 pm → email) queued a request; the next scheduled LF2 run logged `processed=1 failed=0 received=1`, Q1 drained to 0, and the user received the email with 3 Japanese restaurants, correct format, names/addresses/ratings from DynamoDB.
+- **Still open:** the ID lookup uses the DynamoDB fallback; switching to OpenSearch is Step 7.
 
 **Cost note:** the rule invokes LF2 ~1,440 times/day (free-tier territory, but it never stops). Disable it when not testing: `aws events disable-rule --name lf2-every-minute` (re-enable with `enable-rule`).
 

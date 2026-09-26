@@ -15,7 +15,7 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 | Lambda | `LF2` (python3.12, 60s) | us-east-1 | queue worker; env `QUEUE_URL`, `TABLE_NAME`, `SENDER_EMAIL` (+ `OPENSEARCH_*` in Step 7) |
 | IAM role | `lf2-queue-worker-role` | global | basic exec + SQS receive/delete on Q1 + DynamoDB read on `yelp-restaurants` + `ses:SendEmail` on the sender identity |
 | EventBridge rule | `lf2-every-minute` | us-east-1 | `rate(1 minute)` → LF2 (**runs 24/7; disable when not testing**) |
-| SES identity | sender address from `.env` | us-east-1 | sandbox; verification pending until link clicked |
+| SES identity | sender address from `.env` | us-east-1 | sandbox; verified |
 | SQS queue (Q1) | `dining-requests-q1` | us-east-1 | https://sqs.us-east-1.amazonaws.com/088850687383/dining-requests-q1 ; retention 1 day, visibility timeout 60s |
 | Lambda | `LF1` (python3.12) | us-east-1 | Lex code hook; env `QUEUE_URL`; `lambdas/lf1-lex-hook/lambda_function.py` |
 | IAM role | `lf1-lex-hook-role` | global | basic exec + `sqs:SendMessage` on Q1 |
