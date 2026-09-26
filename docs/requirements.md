@@ -48,12 +48,12 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 - [x] Each item has `insertedAtTimestamp`
 
 ## Step 6 — Suggestions module LF2 + SES + EventBridge (15 pts) — PDF §7
-- [ ] Create LF2 as queue worker: pull message from Q1
-- [ ] Get random restaurant recommendation(s) for the cuisine from OpenSearch (IDs)
-- [ ] Look up name/address/etc. in DynamoDB `yelp-restaurants`
-- [ ] Format and email via SES to the address in the SQS message (verify sender/recipient in SES sandbox)
-- [ ] EventBridge Scheduler / CloudWatch Events rule invoking LF2 every 1 minute
-- [ ] Filter by cuisine only (no neighborhood filtering needed)
+- [x] Create LF2 as queue worker: pull message from Q1
+- [ ] Get random restaurant recommendation(s) for the cuisine from OpenSearch (IDs) — code written; uses a DynamoDB fallback until Step 7
+- [x] Look up name/address/etc. in DynamoDB `yelp-restaurants`
+- [ ] Format and email via SES — formatting tested locally; **SES sender verification pending**; real send not yet tested to the address in the SQS message (verify sender/recipient in SES sandbox)
+- [x] EventBridge Scheduler / CloudWatch Events rule invoking LF2 every 1 minute
+- [x] Filter by cuisine only (no neighborhood filtering needed)
 
 ## Step 7 — OpenSearch (15 pts) — PDF §6 — **do last, delete when done**
 - [ ] Create OpenSearch domain — cost-saving settings: Standard create, Dev/Test, no standby / 1 AZ, 1 data node `t3.small.search` or `t3.medium.search`, fine-grained access control with a master user

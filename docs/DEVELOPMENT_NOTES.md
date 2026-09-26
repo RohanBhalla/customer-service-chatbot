@@ -18,7 +18,7 @@ Newest steps go at the bottom of the step log. See also:
 | 3 | Lex bot + LF1 + SQS | 20 | Done |
 | 4 | Lex integrated into chat API | 10 | Done — browser check by user pending |
 | 5 | Yelp scrape → DynamoDB | 15 | Done (1,198 restaurants) |
-| 6 | LF2 + SES + EventBridge | 15 | Not started |
+| 6 | LF2 + SES + EventBridge | 15 | In progress — LF2 + schedule live; waiting on SES verification for a real send |
 | 7 | OpenSearch | 15 | Not started (do last; costs money) |
 | EC | Conversation state | 10 | Not started |
 
@@ -30,7 +30,7 @@ Browser (S3 site) ──POST /chatbot──▶ API Gateway (v1) ──▶ LF0 �
                                                                                       ▼
                                                                                      LF1 ──SendMessage──▶ SQS Q1 (dining-requests-q1)
 ```
-DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it yet. Not yet built: LF2 (queue worker), OpenSearch, SES, EventBridge schedule, extra-credit state table.
+DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it yet. LF2 + the 1-minute schedule exist (using a DynamoDB fallback for IDs). Not yet built: OpenSearch, extra-credit state table.
 
 ## Design decisions
 
@@ -42,7 +42,7 @@ DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it y
 | API auth | None | Starter builds the client with no credentials; SigV4 would need Cognito. Anyone with the URL can call it |
 | Lambda integration | Lambda proxy | LF0 owns the response, including CORS headers |
 | Session id | Random id stored in browser `localStorage`, sent in `messages[0].unstructured.id` | Swagger has no session field; Lex needs a stable id; reused for the extra credit |
-| One IAM role per Lambda | `lf0-chat-api-role`, `lf1-lex-hook-role` (LF2 later) | Least privilege per function |
+| One IAM role per Lambda | `lf0-chat-api-role`, `lf1-lex-hook-role`, `lf2-queue-worker-role` | Least privilege per function |
 | OpenSearch | Built last, deleted after testing | Billed hourly, not serverless |
 | Repo visibility | Private | Coursework |
 
@@ -147,6 +147,27 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 - Live DynamoDB scan: 1,198 items; per cuisine 200/200/200/200/198/200; 0 items missing `insertedAtTimestamp`.
 
 **Notes:** the key lives only in `.env` (git-ignored, confirmed with `git check-ignore`); scripts read it at run time and never print it.
+
+### Step 6 — LF2 queue worker, SES, EventBridge (in progress)
+**Done**
+- SES (sandbox: 200 emails/day, 1/s): started verification of the sender address from `.env` (`aws sesv2 create-email-identity`). A verification email is sent to it; the link must be clicked before sending works. In sandbox the recipient must be verified too (using the same address as sender and recipient is simplest).
+- LF2 (Python 3.12, 60 s timeout, role `lf2-queue-worker-role`): each run receives up to 10 messages from Q1 (2 s long-poll), and for each one gets random restaurant IDs for the cuisine, fetches details from DynamoDB (`BatchGetItem`), formats and sends the email through SES, and only then deletes the message. On failure the message is left to reappear after the 60 s visibility timeout; after 3 receives it is dropped so one bad message can't loop for a day.
+- ID lookup has two paths: OpenSearch `_search` with a `random_score` function query (used when `OPENSEARCH_ENDPOINT` is set; uses only `urllib`, so no packaging of extra libraries) and a DynamoDB scan filtered by cuisine (temporary fallback until Step 7).
+- Email text follows the PDF ("Hello! Here are my Japanese restaurant suggestions for 2 people, at 7:00 PM: 1. Name, located at address … Enjoy your meal!") plus rating/review count. No date is collected by the bot, so the email says "at <time>" rather than "today at".
+- EventBridge rule `lf2-every-minute` (`rate(1 minute)`) → LF2, with a Lambda permission for `events.amazonaws.com` scoped to that rule. (Chose classic EventBridge rules over Scheduler: no extra IAM role needed.)
+- `lf2-queue-worker-role` least-privilege policy: `sqs:ReceiveMessage/DeleteMessage/GetQueueAttributes` on Q1, `dynamodb:BatchGetItem/GetItem/Scan` on `yelp-restaurants`, `ses:SendEmail` on the sender identity only.
+
+**Issues**
+1. *JMESPath `not()` doesn't exist* in an `aws sesv2 get-account --query` I wrote (read-only; reran with `ProductionAccessEnabled`).
+2. *Rating showed as `4` instead of `4.0`* in local output → format with `:.1f`.
+3. *No log group after creating the rule.* LF2 had not yet been invoked by the schedule (rules can take a minute or two to start). Confirmed the rule/target/permission were correct, invoked LF2 manually once (queue empty, safe), then saw scheduled runs at 21:38:16 and 21:39:16 UTC — every minute.
+
+**Verify so far**
+- Local test with real AWS credentials: lookup for `japanese`/`indian`/`thai` returns correct-cuisine restaurants; details fetched; email text formatted correctly (singular/plural, 12-hour time).
+- Scheduled runs succeed with `processed=0 failed=0 received=0` on the empty queue.
+- **Not yet verified:** an actual SES send and the full chat → email flow (blocked on SES verification).
+
+**Cost note:** the rule invokes LF2 ~1,440 times/day (free-tier territory, but it never stops). Disable it when not testing: `aws events disable-rule --name lf2-every-minute` (re-enable with `enable-rule`).
 
 ---
 
