@@ -63,15 +63,15 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 - [x] Test LF2 end-to-end (confirmed via logs + email) — **domain still running, delete pending user decision**
 
 ## Extra Credit — Conversation state (10 pts)
-- [ ] DynamoDB table (e.g. `user-search-state`) storing each user's last location + cuisine (and the last recommendation)
-- [ ] When a returning user requests the same location + cuisine as their previous search, ask whether they want the same recommendation as last time
-- [ ] Needs a stable user/session id from the frontend through LF0 → Lex → LF1
+- [x] DynamoDB table (e.g. `user-search-state`) storing each user's last location + cuisine (and the last recommendation)
+- [x] When a returning user requests the same location + cuisine as their previous search, ask whether they want the same recommendation as last time
+- [x] Needs a stable user/session id from the frontend through LF0 → Lex → LF1
 
 ---
 
 ## Final deliverables checklist
-- [ ] Everything works end to end (chat → email received)
-- [ ] Code committed to GitHub
+- [x] Everything works end to end (chat → email received), including the extra-credit reuse flow
+- [x] Code committed to GitHub
 - [ ] OpenSearch domain shut down after grading demo/testing
 
 ## Notes

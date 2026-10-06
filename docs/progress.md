@@ -12,6 +12,7 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 | Resource | Name | Region | Notes |
 |----------|------|--------|-------|
 | DynamoDB table | `yelp-restaurants` | us-east-1 | on-demand; key `BusinessID` (S); 1,198 items; attrs BusinessID, Name, Address, Coordinates, NumberOfReviews, Rating, ZipCode, Cuisine, insertedAtTimestamp |
+| DynamoDB table | `user-search-state` | us-east-1 | on-demand; key `SessionId` (S); attrs Location, Cuisine (written by LF1), RestaurantIds (written by LF2), UpdatedAt |
 | OpenSearch domain | `dining-concierge` | us-east-1 | t3.small.search, 1 node, 1 AZ, no standby, FGAC (admin user), gp3 10GB. **Billed hourly while running — delete when done.** Endpoint in `.env` |
 | Lambda | `LF2` (python3.12, 60s) | us-east-1 | queue worker; env `QUEUE_URL`, `TABLE_NAME`, `SENDER_EMAIL` (+ `OPENSEARCH_*` in Step 7) |
 | IAM role | `lf2-queue-worker-role` | global | basic exec + SQS receive/delete on Q1 + DynamoDB read on `yelp-restaurants` + `ses:SendEmail` on the sender identity |
@@ -56,3 +57,6 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 
 ## Step 7 — OpenSearch
 - Domain `dining-concierge` created; index `restaurants` loaded with 1,198 docs (`RestaurantID`, `Cuisine`, `type:Restaurant`). LF2 repointed at it and confirmed working end to end. Details in `DEVELOPMENT_NOTES.md`. **Domain is still running — delete after final testing/demo.**
+
+## Extra Credit — conversation state
+- New Lex slot `SameAsLastTime` (bot version 2, `prod` alias repointed). LF1 checks `user-search-state` when Location+Cuisine are filled; if they match the session's last search, asks to reuse; on yes, LF2 reuses the exact stored restaurant IDs instead of a fresh OpenSearch pick. Tested end to end (4 scenarios). Details in `DEVELOPMENT_NOTES.md`.

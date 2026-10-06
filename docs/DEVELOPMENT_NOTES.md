@@ -20,7 +20,7 @@ Newest steps go at the bottom of the step log. See also:
 | 5 | Yelp scrape → DynamoDB | 15 | Done (1,198 restaurants) |
 | 6 | LF2 + SES + EventBridge | 15 | Done except the OpenSearch ID lookup (DynamoDB fallback in use until Step 7) |
 | 7 | OpenSearch | 15 | Done — **domain still running, delete when finished testing** |
-| EC | Conversation state | 10 | Not started |
+| EC | Conversation state | 10 | Done |
 
 ## Architecture as built so far
 
@@ -196,6 +196,26 @@ aws opensearch delete-domain --domain-name dining-concierge
 There's no "stop" state for OpenSearch, only delete; deleting removes the index too, but it reloads in under a minute from `data/yelp-restaurants.json` via `scripts/load_opensearch.py` (no need to hit the Yelp API again). If keeping it up for a demo, remember to delete it afterward.
 
 ---
+
+### Extra Credit — conversation state (same location+cuisine → offer to repeat)
+**Done**
+- DynamoDB table `user-search-state` (on-demand, key `SessionId`). LF1 owns `Location`/`Cuisine` (written every fulfillment); LF2 owns `RestaurantIds` (written only after a successful send, so it always reflects what was actually emailed — whether freshly picked or reused).
+- Lex: new slot type `YesNoType` (Yes/No + synonyms, TopResolution) and a new **Optional** slot `SameAsLastTime` on `DiningSuggestionsIntent`, priority right after Cuisine. Optional so Lex's automatic delegate flow never asks for it on its own — LF1's dialog code hook explicitly `ElicitSlot`s it only when the condition is met. Published as bot version 2; `prod` alias repointed at it (`scripts/update_lex_add_state_slot.py`, idempotent — skips the slot type/slot if they already exist, but always rebuilds+republishes+repoints so it's safe to rerun after further intent edits).
+- LF1 dialog hook: once Location & Cuisine are both filled and valid, and `SameAsLastTime` is still empty, looks up the session's last search; if location+cuisine match (case-insensitive), elicits `SameAsLastTime` with "Looks like you searched for X food in Y last time too! Would you like the same recommendations as last time?" before continuing to NumberOfPeople/DiningTime/Email.
+- LF1 fulfillment hook: if the answer resolved to yes, fetches the session's stored `RestaurantIds` and includes them in the SQS message (`restaurantIds`); always upserts `Location`/`Cuisine` for the session (never touches `RestaurantIds` — that's LF2's job). Confirmation message changes to "Sending you the same recommendations as last time" when reusing.
+- LF2: if the SQS message carries `restaurantIds`, uses them directly instead of calling `get_restaurant_ids` (skips OpenSearch/DynamoDB lookup entirely); falls back to a fresh pick if those IDs turn out to be missing/stale (defensive — e.g. a restaurant removed from the table). After every successful send, writes the restaurant IDs actually used back to `user-search-state` (`save_last_recommendation`) — this is what makes "last time" always mean "last thing actually emailed," including after a reuse.
+- IAM: LF1 role got `dynamodb:GetItem`/`UpdateItem` on `user-search-state`; LF2 role got `dynamodb:UpdateItem` on it.
+
+**Issues**
+1. *`scripts/update_lex_add_state_slot.py` ran past the 300s foreground command limit* (locale build + version publish together took a few minutes) and was moved to a background task automatically; polled its output file instead of blocking. No real issue, just noting the run took longer than a quick CLI call.
+2. *A manual `aws sqs receive-message --visibility-timeout 70` I ran to peek at a queued message briefly hid it from LF2* for up to 70s (a standard-queue message becomes invisible to other consumers while "in flight"). Not a bug — just a reminder that peeking at Q1 with a non-zero visibility timeout delays real processing; re-peeked with `--visibility-timeout 0` and it reappeared immediately once I was done. Nothing was lost; LF2 picked it up on its next 1-minute tick.
+3. *SQS's `ApproximateNumberOfMessages`/log-tail timestamps made it easy to misread which request a log line belonged to* while multiple test conversations were queued close together (within the same 1-minute LF2 cycle). Resolved by comparing log timestamps against `date -u` rather than assuming the most recent grep match was the most recent event.
+
+**Verify — 4 scenarios, all on one session id (simulating the same browser returning):**
+1. **First search** (Manhattan/Japanese, no prior state): no reuse question asked; confirmed correct original-style confirmation message; LF2 processed it and wrote `{Location: Manhattan, Cuisine: japanese, RestaurantIds: [3 ids]}` to `user-search-state`.
+2. **Second search, same location+cuisine:** bot asked "Looks like you searched for Japanese food in Manhattan last time too! Would you like the same recommendations as last time?" Answered "Yes" → confirmation changed to "Sending you the same recommendations as last time"; SQS message carried `restaurantIds` equal to the 3 stored ids; LF2 processed it with no OpenSearch/fallback call and wrote back the **identical** 3 ids (confirmed byte-for-byte equal before/after).
+3. **Third search, different cuisine (Italian), same session:** no reuse question (location/cuisine didn't match the stored japanese search) — confirms the match check is on *both* fields, not just session id.
+4. **Fourth search, same location+cuisine as #3 (Manhattan/Italian):** reuse question asked again; answered "No" → confirmation reverted to the normal (non-reuse) wording; SQS message had **no** `restaurantIds` field; LF2 did a fresh OpenSearch pick; `user-search-state` was overwritten with a **new** set of 3 ids, different from any prior set — confirming "No" correctly bypasses reuse and refreshes the stored recommendation for next time.
 
 ## Known limitations / things to revisit
 - API has no auth; anyone with the URL can invoke Lex through it (each call costs a tiny amount).

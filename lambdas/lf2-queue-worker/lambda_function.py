@@ -10,6 +10,7 @@ from boto3.dynamodb.conditions import Attr
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 TABLE_NAME = os.environ.get("TABLE_NAME", "yelp-restaurants")
+STATE_TABLE_NAME = os.environ.get("STATE_TABLE", "user-search-state")
 SENDER = os.environ["SENDER_EMAIL"]
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", "").rstrip("/")
 OPENSEARCH_USER = os.environ.get("OPENSEARCH_USER", "")
@@ -19,7 +20,9 @@ MAX_RECEIVES = 3  # give up on a message that has failed this many times
 
 sqs = boto3.client("sqs")
 ses = boto3.client("sesv2")
-table = boto3.resource("dynamodb").Table(TABLE_NAME)
+ddb = boto3.resource("dynamodb")
+table = ddb.Table(TABLE_NAME)
+state_table = ddb.Table(STATE_TABLE_NAME)
 
 
 # ---------- restaurant lookup ----------
@@ -70,11 +73,26 @@ def get_restaurant_details(ids):
     """Name, address etc. for each ID from the yelp-restaurants table."""
     if not ids:
         return []
-    resp = boto3.resource("dynamodb").batch_get_item(
-        RequestItems={TABLE_NAME: {"Keys": [{"BusinessID": i} for i in ids]}}
-    )
+    resp = ddb.batch_get_item(RequestItems={TABLE_NAME: {"Keys": [{"BusinessID": i} for i in ids]}})
     by_id = {r["BusinessID"]: r for r in resp["Responses"][TABLE_NAME]}
     return [by_id[i] for i in ids if i in by_id]  # keep the random order
+
+
+# ---------- extra credit: remember what was last recommended ----------
+
+def save_last_recommendation(session_id, ids):
+    """LF2 owns RestaurantIds: it's the only thing that knows which restaurants were
+    actually emailed (freshly chosen or reused), so it's the source of truth for 'last time'."""
+    if not session_id or not ids:
+        return
+    try:
+        state_table.update_item(
+            Key={"SessionId": session_id},
+            UpdateExpression="SET RestaurantIds = :r",
+            ExpressionAttributeValues={":r": ids},
+        )
+    except Exception as exc:  # don't fail the send over a state-table hiccup
+        print(f"save_last_recommendation failed: {exc!r}")
 
 
 # ---------- email ----------
@@ -112,11 +130,18 @@ def send_email(to_addr, body):
 
 def process(message):
     req = json.loads(message["Body"])
-    ids = get_restaurant_ids(req["cuisine"], NUM_SUGGESTIONS)
+    reused = bool(req.get("restaurantIds"))
+    ids = req["restaurantIds"] if reused else get_restaurant_ids(req["cuisine"], NUM_SUGGESTIONS)
     restaurants = get_restaurant_details(ids)
     if not restaurants:
-        raise RuntimeError(f"no restaurants found for cuisine {req['cuisine']!r}")
+        if reused:  # stale/missing IDs from state table: fall back to a fresh pick
+            print(f"reused restaurantIds {ids} not found; falling back to a fresh pick")
+            ids = get_restaurant_ids(req["cuisine"], NUM_SUGGESTIONS)
+            restaurants = get_restaurant_details(ids)
+        if not restaurants:
+            raise RuntimeError(f"no restaurants found for cuisine {req['cuisine']!r}")
     send_email(req["email"], format_email(req, restaurants))
+    save_last_recommendation(req.get("sessionId"), [r["BusinessID"] for r in restaurants])
 
 
 def lambda_handler(event, context):
