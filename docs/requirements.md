@@ -49,18 +49,18 @@ Legend: `[ ]` todo · `[x]` done and reviewed
 
 ## Step 6 — Suggestions module LF2 + SES + EventBridge (15 pts) — PDF §7
 - [x] Create LF2 as queue worker: pull message from Q1
-- [ ] Get random restaurant recommendation(s) for the cuisine from OpenSearch (IDs) — code written; uses a DynamoDB fallback until Step 7
+- [x] Get random restaurant recommendation(s) for the cuisine from OpenSearch (IDs)
 - [x] Look up name/address/etc. in DynamoDB `yelp-restaurants`
 - [x] Format and email via SES (verified sender; end-to-end chat → email received) to the address in the SQS message (verify sender/recipient in SES sandbox)
 - [x] EventBridge Scheduler / CloudWatch Events rule invoking LF2 every 1 minute
 - [x] Filter by cuisine only (no neighborhood filtering needed)
 
 ## Step 7 — OpenSearch (15 pts) — PDF §6 — **do last, delete when done**
-- [ ] Create OpenSearch domain — cost-saving settings: Standard create, Dev/Test, no standby / 1 AZ, 1 data node `t3.small.search` or `t3.medium.search`, fine-grained access control with a master user
-- [ ] Index `restaurants`, type `Restaurant`
-- [ ] Store only `RestaurantID` and `Cuisine` per restaurant
-- [ ] Load data from the Step 5 scrape
-- [ ] Test LF2 end-to-end, then **delete/stop the domain** to avoid charges
+- [x] Create OpenSearch domain — cost-saving settings: Standard create, Dev/Test, no standby / 1 AZ, 1 data node `t3.small.search` or `t3.medium.search`, fine-grained access control with a master user
+- [x] Index `restaurants`, type `Restaurant`
+- [x] Store only `RestaurantID` and `Cuisine` per restaurant
+- [x] Load data from the Step 5 scrape
+- [x] Test LF2 end-to-end (confirmed via logs + email) — **domain still running, delete pending user decision**
 
 ## Extra Credit — Conversation state (10 pts)
 - [ ] DynamoDB table (e.g. `user-search-state`) storing each user's last location + cuisine (and the last recommendation)

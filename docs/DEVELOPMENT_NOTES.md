@@ -19,7 +19,7 @@ Newest steps go at the bottom of the step log. See also:
 | 4 | Lex integrated into chat API | 10 | Done — browser check by user pending |
 | 5 | Yelp scrape → DynamoDB | 15 | Done (1,198 restaurants) |
 | 6 | LF2 + SES + EventBridge | 15 | Done except the OpenSearch ID lookup (DynamoDB fallback in use until Step 7) |
-| 7 | OpenSearch | 15 | Not started (do last; costs money) |
+| 7 | OpenSearch | 15 | Done — **domain still running, delete when finished testing** |
 | EC | Conversation state | 10 | Not started |
 
 ## Architecture as built so far
@@ -30,7 +30,7 @@ Browser (S3 site) ──POST /chatbot──▶ API Gateway (v1) ──▶ LF0 �
                                                                                       ▼
                                                                                      LF1 ──SendMessage──▶ SQS Q1 (dining-requests-q1)
 ```
-DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it yet. LF2 + the 1-minute schedule exist (using a DynamoDB fallback for IDs). Not yet built: OpenSearch, extra-credit state table.
+DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it yet. LF2 + the 1-minute schedule exist (using a DynamoDB fallback for IDs). Not yet built: extra-credit state table. **OpenSearch domain is live and costing money until deleted.**
 
 ## Design decisions
 
@@ -171,6 +171,29 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 - **Still open:** the ID lookup uses the DynamoDB fallback; switching to OpenSearch is Step 7.
 
 **Cost note:** the rule invokes LF2 ~1,440 times/day (free-tier territory, but it never stops). Disable it when not testing: `aws events disable-rule --name lf2-every-minute` (re-enable with `enable-rule`).
+
+### Step 7 — OpenSearch
+**Done**
+- Domain `dining-concierge`: `OpenSearch_2.17`, 1 data node `t3.small.search`, no dedicated master, 1 AZ / no standby (`ZoneAwarenessEnabled=false`), gp3 10GB EBS, encryption at rest + node-to-node, HTTPS enforced, fine-grained access control with master user `admin` (credentials from `.env`).
+- `scripts/load_opensearch.py`: creates index `restaurants` with an explicit mapping for `RestaurantID`/`Cuisine`/`type` (keyword fields), then bulk-loads one doc per restaurant from `data/yelp-restaurants.json`, each tagged `"type": "Restaurant"`. OpenSearch dropped mapping *types* years ago (one index = implicitly one type now), so the PDF's "create a type called Restaurant under the index" is satisfied by that `type` field plus the index itself being named `restaurants`, not by a literal ES6-style mapping type — noted here since it's a deviation from the literal instruction forced by the AWS API no longer supporting it.
+- LF2 updated with `OPENSEARCH_ENDPOINT`/`OPENSEARCH_USER`/`OPENSEARCH_PASSWORD`; `ids_from_opensearch()` (written in Step 6) now runs instead of the DynamoDB fallback — no code change needed, just env vars.
+- Result: 1,198 docs indexed, 0 errors; per-cuisine counts match the DynamoDB table exactly (200/200/200/200/198/200).
+
+**Issues**
+1. *`create-domain --access-policies` failed validation* (`Member must satisfy ... pattern: .*` — a confusing error for a policy that **is** valid JSON). Root cause: AWS blocks *creating* a domain with an open (`Principal: "*"`) resource policy on a public endpoint, even with FGAC enabled. → Dropped `--access-policies` from `create-domain` entirely (FGAC turns on auth, but the resource policy is still evaluated first).
+2. *Everything then 403'd* (`User: anonymous is not authorized ... es:ESHttpGet`) because with no access policy at all, the implicit policy denies every request before FGAC's basic-auth is even checked. → `aws opensearch update-domain-config --access-policies ...` (not `create-domain`) accepted the same open policy — the block only applies at creation time. Waited ~1–2 min for the config update to finish processing, then the index create/load succeeded.
+3. *`_count` showed 500 right after the bulk load*, not 1,198. OpenSearch's default 1s refresh interval hadn't caught up yet. → `POST /restaurants/_refresh`, then `_count` showed 1,198. Not a real issue, just a timing artifact; left a note in the script's output since it could worry a future reader.
+4. *SQS `ApproximateNumberOfMessages` showed 1 right after LF2 logged `processed=1`.* SQS's counters are eventually consistent (as the name says), not transactional. A `receive-message` right after returned nothing, and the count was 0 a few seconds later. No real second message.
+
+**Verify**
+- Bulk load: 1,198 indexed, 0 errors; per-cuisine `_search` counts match DynamoDB exactly.
+- End-to-end: a Thai request queued through the real API; next scheduled LF2 run logged `processed=1 failed=0`, with no "using DynamoDB fallback" line, confirming the OpenSearch path ran; Q1 drained back to 0.
+
+**Cost / cleanup:** the domain (`t3.small.search`, 1 node) bills roughly $0.036/hr + storage — about $1/day if left running. **It is running right now.** Delete with:
+```
+aws opensearch delete-domain --domain-name dining-concierge
+```
+There's no "stop" state for OpenSearch, only delete; deleting removes the index too, but it reloads in under a minute from `data/yelp-restaurants.json` via `scripts/load_opensearch.py` (no need to hit the Yelp API again). If keeping it up for a demo, remember to delete it afterward.
 
 ---
 

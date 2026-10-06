@@ -12,6 +12,7 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 | Resource | Name | Region | Notes |
 |----------|------|--------|-------|
 | DynamoDB table | `yelp-restaurants` | us-east-1 | on-demand; key `BusinessID` (S); 1,198 items; attrs BusinessID, Name, Address, Coordinates, NumberOfReviews, Rating, ZipCode, Cuisine, insertedAtTimestamp |
+| OpenSearch domain | `dining-concierge` | us-east-1 | t3.small.search, 1 node, 1 AZ, no standby, FGAC (admin user), gp3 10GB. **Billed hourly while running — delete when done.** Endpoint in `.env` |
 | Lambda | `LF2` (python3.12, 60s) | us-east-1 | queue worker; env `QUEUE_URL`, `TABLE_NAME`, `SENDER_EMAIL` (+ `OPENSEARCH_*` in Step 7) |
 | IAM role | `lf2-queue-worker-role` | global | basic exec + SQS receive/delete on Q1 + DynamoDB read on `yelp-restaurants` + `ses:SendEmail` on the sender identity |
 | EventBridge rule | `lf2-every-minute` | us-east-1 | `rate(1 minute)` → LF2 (**runs 24/7; disable when not testing**) |
@@ -52,3 +53,6 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 
 ## Step 5 — Yelp → DynamoDB
 - `scripts/scrape_yelp.py` → `scripts/restaurants.json` (git-ignored); `scripts/load_dynamodb.py` → table. 1,198 items. Details in `DEVELOPMENT_NOTES.md`.
+
+## Step 7 — OpenSearch
+- Domain `dining-concierge` created; index `restaurants` loaded with 1,198 docs (`RestaurantID`, `Cuisine`, `type:Restaurant`). LF2 repointed at it and confirmed working end to end. Details in `DEVELOPMENT_NOTES.md`. **Domain is still running — delete after final testing/demo.**
