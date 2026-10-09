@@ -6,6 +6,8 @@ A serverless, microservice-driven Dining Concierge chatbot. Users chat through a
 frontend; an Amazon Lex bot collects dining preferences; a decoupled queue worker
 emails restaurant suggestions (from Yelp data in DynamoDB + OpenSearch) via SES.
 
+**Live chatbot:** http://cc-hw1-chatbot-frontend-088850687383.s3-website-us-east-1.amazonaws.com
+
 Full assignment: [`docs/CC_Fall2026_Assignment1.pdf`](docs/CC_Fall2026_Assignment1.pdf)
 Requirements checklist: [`docs/requirements.md`](docs/requirements.md)
 Progress log: [`docs/progress.md`](docs/progress.md)

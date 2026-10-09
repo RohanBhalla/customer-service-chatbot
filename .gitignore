@@ -19,9 +19,10 @@ node_modules/
 build/
 dist/
 
-# Scraper output and local Yelp data snapshots (not committed)
+# Scraper output and local Yelp data snapshots (not committed, except the tracked export below)
 other-scripts/*.json
 data/*.json
+!data/yelp-restaurants.json
 other-scripts/*.csv
 
 # OS / editor
