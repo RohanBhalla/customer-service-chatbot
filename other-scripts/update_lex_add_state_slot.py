@@ -1,7 +1,7 @@
 """Add the SameAsLastTime slot (extra credit) to the existing DiningConcierge bot,
 rebuild the DRAFT locale, publish a new version, and repoint the `prod` alias at it.
 
-Usage: .venv/bin/python scripts/update_lex_add_state_slot.py
+Usage: .venv/bin/python other-scripts/update_lex_add_state_slot.py
 Safe to re-run: skips the slot type / slot if they already exist, but always publishes
 a fresh version and repoints the alias (cheap, and keeps the alias on the latest DRAFT).
 """

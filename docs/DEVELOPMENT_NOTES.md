@@ -52,7 +52,7 @@ DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it y
 
 ### Step 0 — Repo and AWS account setup
 **Done**
-- Read the assignment PDF; scaffolded `customer-service-chatbot/` (`frontend/`, `api/`, `lambdas/lf0..lf2`, `scripts/`, `docs/`), `.gitignore`, `.env.example`, README, requirements checklist.
+- Read the assignment PDF; scaffolded `customer-service-chatbot/` (`frontend/`, `api/`, `lambda-functions/lf0..lf2`, `other-scripts/`, `docs/`), `.gitignore`, `.env.example`, README, requirements checklist.
 - Created a private GitHub repo and pushed.
 - AWS: the old default CLI user `cloud-class-lab-user` was a limited assignment user. User created a new IAM user `cc-hw1-dev` with admin-style access in their own account, enabled root MFA, a budget alert and billing alerts, then overwrote the default CLI profile with the new keys.
 
@@ -65,7 +65,7 @@ DynamoDB `yelp-restaurants` (1,198 restaurants) is loaded but nothing reads it y
 ### Step 1 — Frontend on S3
 **Done**
 - Cloned https://github.com/aditya491929/cloud-hw1-starter into `frontend/` (Swagger copied to `api/swagger/swagger.yaml`).
-- Created the bucket and enabled website hosting (`scripts/deploy_frontend.sh` redeploys):
+- Created the bucket and enabled website hosting (`other-scripts/deploy_frontend.sh` redeploys):
 ```
 aws s3api create-bucket --bucket cc-hw1-chatbot-frontend-088850687383 --region us-east-1
 aws s3api put-public-access-block --bucket <b> --public-access-block-configuration BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false
@@ -102,10 +102,10 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
   - Dialog hook validates Location (Manhattan + NYC aliases), Cuisine (the 6), NumberOfPeople (1–20), Email (regex), re-asking with `ElicitSlot`.
   - Fulfillment hook sends `{location, cuisine, diningTime, numberOfPeople, email}` to Q1 and confirms.
 - Lex V2 bot `DiningConcierge` (id `R0153OSV9Z`, locale `en_US`, NLU threshold 0.4), service role `lex-hw1-bot-role`. Custom slot types `CuisineType` (TopResolution) and `LocationType` (OriginalValue, so unknown cities such as "New Delhi" reach LF1 and get the friendly rejection). Version 1 published; alias `prod` = `R4JQFJKHQG`; `TestBotAlias` (DRAFT) also hooked to LF1 so the console Test pane runs the code hook. Lambda permission grants `lexv2.amazonaws.com` invoke on LF1 for `bot-alias/R0153OSV9Z/*`.
-- Bot built by `scripts/setup_lex_bot.py` (uses the git-ignored `.venv` with boto3).
+- Bot built by `other-scripts/setup_lex_bot.py` (uses the git-ignored `.venv` with boto3).
 
 **Issues**
-1. *boto3 not installed locally.* → `python3 -m venv .venv && .venv/bin/pip install boto3 requests` (`scripts/requirements.txt`).
+1. *boto3 not installed locally.* → `python3 -m venv .venv && .venv/bin/pip install boto3 requests` (`other-scripts/requirements.txt`).
 2. *`OperationNotPageableError: list_bots`.* → Manual `nextToken` loop.
 3. *`CreateSlotType ... BotLocale is in Creating state`.* → Added a wait for locale status `NotBuilt`. The partial bot from that run was deleted (`delete-bot --skip-resource-in-use-check`) and the script rerun.
 4. *`DescribeBotVersion ResourceNotFoundException` right after `create_bot_version`* (eventual consistency). → Treat "not found" as "not visible yet" in the wait loop. This run had already built the bot; the alias, code hook attachment and Lambda permission were finished **by hand** with the CLI. The patched script has not been run start to finish.
@@ -134,8 +134,8 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 **Done**
 - Tested the Yelp Fusion key first with one search (HTTP 200). Response headers showed **300 calls/day**, resetting at 00:00 UTC — so results are cached locally and re-runs are avoided.
 - DynamoDB table `yelp-restaurants`: on-demand billing, hash key `BusinessID` (S).
-- `scripts/scrape_yelp.py`: for each of the 6 cuisines, searches `term="<cuisine> restaurants"` + Yelp `categories` alias (`indpak` for Indian), starting with "Manhattan, NY" (4 pages × 50) and falling back to 16 neighborhood queries until 200 are collected. Keeps only Manhattan zips (100xx–102xx) with coordinates. Dedupes on BusinessID across all cuisines (a restaurant is kept under the first cuisine that found it). Guard stops at 250 API calls. Writes `scripts/restaurants.json` (git-ignored).
-- `scripts/load_dynamodb.py`: reads the JSON (floats parsed as `Decimal`, since DynamoDB has no float type), stamps `insertedAtTimestamp` (UTC ISO-8601), writes with `batch_writer`. Re-runnable (keyed by BusinessID).
+- `other-scripts/scrape_yelp.py`: for each of the 6 cuisines, searches `term="<cuisine> restaurants"` + Yelp `categories` alias (`indpak` for Indian), starting with "Manhattan, NY" (4 pages × 50) and falling back to 16 neighborhood queries until 200 are collected. Keeps only Manhattan zips (100xx–102xx) with coordinates. Dedupes on BusinessID across all cuisines (a restaurant is kept under the first cuisine that found it). Guard stops at 250 API calls. Writes `other-scripts/restaurants.json` (git-ignored).
+- `other-scripts/load_dynamodb.py`: reads the JSON (floats parsed as `Decimal`, since DynamoDB has no float type), stamps `insertedAtTimestamp` (UTC ISO-8601), writes with `batch_writer`. Re-runnable (keyed by BusinessID).
 - Item shape: `BusinessID, Name, Address, Coordinates{latitude,longitude}, NumberOfReviews, Rating, ZipCode, Cuisine, insertedAtTimestamp`. `Cuisine` is extra (not in the PDF list) — needed to load OpenSearch in Step 7.
 
 **Issues**
@@ -146,7 +146,7 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 - Scrape: 6 × 200 = 1,200 in 55 API calls (quota used ≈ 56 of 300 that day), all fields present, coordinates inside Manhattan, ids unique.
 - Live DynamoDB scan: 1,198 items; per cuisine 200/200/200/200/198/200; 0 items missing `insertedAtTimestamp`.
 
-**Where the data lives:** live copy = DynamoDB `yelp-restaurants` (1,198 items). Local copies (both git-ignored): `data/yelp-restaurants.json` (export of the table incl. `insertedAtTimestamp`, taken 2026-09-26) and `scripts/restaurants.json` (raw scraper output, no timestamps). Re-export any time by scanning the table; reload with `scripts/load_dynamodb.py`. Kept out of git because Yelp's API terms limit storing/redistributing its content — remove the `data/*.json` line from `.gitignore` if you decide to commit it.
+**Where the data lives:** live copy = DynamoDB `yelp-restaurants` (1,198 items). Local copies (both git-ignored): `data/yelp-restaurants.json` (export of the table incl. `insertedAtTimestamp`, taken 2026-09-26) and `other-scripts/restaurants.json` (raw scraper output, no timestamps). Re-export any time by scanning the table; reload with `other-scripts/load_dynamodb.py`. Kept out of git because Yelp's API terms limit storing/redistributing its content — remove the `data/*.json` line from `.gitignore` if you decide to commit it.
 
 **Notes:** the key lives only in `.env` (git-ignored, confirmed with `git check-ignore`); scripts read it at run time and never print it.
 
@@ -175,7 +175,7 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 ### Step 7 — OpenSearch
 **Done**
 - Domain `dining-concierge`: `OpenSearch_2.17`, 1 data node `t3.small.search`, no dedicated master, 1 AZ / no standby (`ZoneAwarenessEnabled=false`), gp3 10GB EBS, encryption at rest + node-to-node, HTTPS enforced, fine-grained access control with master user `admin` (credentials from `.env`).
-- `scripts/load_opensearch.py`: creates index `restaurants` with an explicit mapping for `RestaurantID`/`Cuisine`/`type` (keyword fields), then bulk-loads one doc per restaurant from `data/yelp-restaurants.json`, each tagged `"type": "Restaurant"`. OpenSearch dropped mapping *types* years ago (one index = implicitly one type now), so the PDF's "create a type called Restaurant under the index" is satisfied by that `type` field plus the index itself being named `restaurants`, not by a literal ES6-style mapping type — noted here since it's a deviation from the literal instruction forced by the AWS API no longer supporting it.
+- `other-scripts/load_opensearch.py`: creates index `restaurants` with an explicit mapping for `RestaurantID`/`Cuisine`/`type` (keyword fields), then bulk-loads one doc per restaurant from `data/yelp-restaurants.json`, each tagged `"type": "Restaurant"`. OpenSearch dropped mapping *types* years ago (one index = implicitly one type now), so the PDF's "create a type called Restaurant under the index" is satisfied by that `type` field plus the index itself being named `restaurants`, not by a literal ES6-style mapping type — noted here since it's a deviation from the literal instruction forced by the AWS API no longer supporting it.
 - LF2 updated with `OPENSEARCH_ENDPOINT`/`OPENSEARCH_USER`/`OPENSEARCH_PASSWORD`; `ids_from_opensearch()` (written in Step 6) now runs instead of the DynamoDB fallback — no code change needed, just env vars.
 - Result: 1,198 docs indexed, 0 errors; per-cuisine counts match the DynamoDB table exactly (200/200/200/200/198/200).
 
@@ -193,21 +193,21 @@ aws s3 sync frontend/ s3://<b>/ --exclude README.md --exclude .gitkeep --delete
 ```
 aws opensearch delete-domain --domain-name dining-concierge
 ```
-There's no "stop" state for OpenSearch, only delete; deleting removes the index too, but it reloads in under a minute from `data/yelp-restaurants.json` via `scripts/load_opensearch.py` (no need to hit the Yelp API again). If keeping it up for a demo, remember to delete it afterward.
+There's no "stop" state for OpenSearch, only delete; deleting removes the index too, but it reloads in under a minute from `data/yelp-restaurants.json` via `other-scripts/load_opensearch.py` (no need to hit the Yelp API again). If keeping it up for a demo, remember to delete it afterward.
 
 ---
 
 ### Extra Credit — conversation state (same location+cuisine → offer to repeat)
 **Done**
 - DynamoDB table `user-search-state` (on-demand, key `SessionId`). LF1 owns `Location`/`Cuisine` (written every fulfillment); LF2 owns `RestaurantIds` (written only after a successful send, so it always reflects what was actually emailed — whether freshly picked or reused).
-- Lex: new slot type `YesNoType` (Yes/No + synonyms, TopResolution) and a new **Optional** slot `SameAsLastTime` on `DiningSuggestionsIntent`, priority right after Cuisine. Optional so Lex's automatic delegate flow never asks for it on its own — LF1's dialog code hook explicitly `ElicitSlot`s it only when the condition is met. Published as bot version 2; `prod` alias repointed at it (`scripts/update_lex_add_state_slot.py`, idempotent — skips the slot type/slot if they already exist, but always rebuilds+republishes+repoints so it's safe to rerun after further intent edits).
+- Lex: new slot type `YesNoType` (Yes/No + synonyms, TopResolution) and a new **Optional** slot `SameAsLastTime` on `DiningSuggestionsIntent`, priority right after Cuisine. Optional so Lex's automatic delegate flow never asks for it on its own — LF1's dialog code hook explicitly `ElicitSlot`s it only when the condition is met. Published as bot version 2; `prod` alias repointed at it (`other-scripts/update_lex_add_state_slot.py`, idempotent — skips the slot type/slot if they already exist, but always rebuilds+republishes+repoints so it's safe to rerun after further intent edits).
 - LF1 dialog hook: once Location & Cuisine are both filled and valid, and `SameAsLastTime` is still empty, looks up the session's last search; if location+cuisine match (case-insensitive), elicits `SameAsLastTime` with "Looks like you searched for X food in Y last time too! Would you like the same recommendations as last time?" before continuing to NumberOfPeople/DiningTime/Email.
 - LF1 fulfillment hook: if the answer resolved to yes, fetches the session's stored `RestaurantIds` and includes them in the SQS message (`restaurantIds`); always upserts `Location`/`Cuisine` for the session (never touches `RestaurantIds` — that's LF2's job). Confirmation message changes to "Sending you the same recommendations as last time" when reusing.
 - LF2: if the SQS message carries `restaurantIds`, uses them directly instead of calling `get_restaurant_ids` (skips OpenSearch/DynamoDB lookup entirely); falls back to a fresh pick if those IDs turn out to be missing/stale (defensive — e.g. a restaurant removed from the table). After every successful send, writes the restaurant IDs actually used back to `user-search-state` (`save_last_recommendation`) — this is what makes "last time" always mean "last thing actually emailed," including after a reuse.
 - IAM: LF1 role got `dynamodb:GetItem`/`UpdateItem` on `user-search-state`; LF2 role got `dynamodb:UpdateItem` on it.
 
 **Issues**
-1. *`scripts/update_lex_add_state_slot.py` ran past the 300s foreground command limit* (locale build + version publish together took a few minutes) and was moved to a background task automatically; polled its output file instead of blocking. No real issue, just noting the run took longer than a quick CLI call.
+1. *`other-scripts/update_lex_add_state_slot.py` ran past the 300s foreground command limit* (locale build + version publish together took a few minutes) and was moved to a background task automatically; polled its output file instead of blocking. No real issue, just noting the run took longer than a quick CLI call.
 2. *A manual `aws sqs receive-message --visibility-timeout 70` I ran to peek at a queued message briefly hid it from LF2* for up to 70s (a standard-queue message becomes invisible to other consumers while "in flight"). Not a bug — just a reminder that peeking at Q1 with a non-zero visibility timeout delays real processing; re-peeked with `--visibility-timeout 0` and it reappeared immediately once I was done. Nothing was lost; LF2 picked it up on its next 1-minute tick.
 3. *SQS's `ApproximateNumberOfMessages`/log-tail timestamps made it easy to misread which request a log line belonged to* while multiple test conversations were queued close together (within the same 1-minute LF2 cycle). Resolved by comparing log timestamps against `date -u` rather than assuming the most recent grep match was the most recent event.
 
@@ -220,7 +220,7 @@ There's no "stop" state for OpenSearch, only delete; deleting removes the index 
 ## Known limitations / things to revisit
 - API has no auth; anyone with the URL can invoke Lex through it (each call costs a tiny amount).
 - Starter `chat.js` inserts message text into the page as raw HTML (user text and bot text are not escaped).
-- `scripts/setup_lex_bot.py` was patched after failures and hasn't been run cleanly from scratch.
+- `other-scripts/setup_lex_bot.py` was patched after failures and hasn't been run cleanly from scratch.
 - Lex version 1 is what the `prod` alias serves. **Changes to the DRAFT bot are not live until a new version is created and the alias is updated** (or LF0 is pointed at `TestBotAlias`/DRAFT while iterating).
 - Diagnostic/test calls that reach fulfillment put real messages in Q1.
 
@@ -230,10 +230,10 @@ There's no "stop" state for OpenSearch, only delete; deleting removes the index 
 aws sts get-caller-identity; aws configure get region
 
 # redeploy frontend
-scripts/deploy_frontend.sh
+other-scripts/deploy_frontend.sh
 
 # redeploy a Lambda (example: LF0)
-(cd lambdas/lf0-chat-api && zip -q /tmp/lf0.zip lambda_function.py)
+(cd lambda-functions/lf0-chat-api && zip -q /tmp/lf0.zip lambda_function.py)
 aws lambda update-function-code --function-name LF0 --zip-file fileb:///tmp/lf0.zip
 
 # redeploy the API after changes

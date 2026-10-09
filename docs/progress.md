@@ -3,7 +3,7 @@
 Record each step: what was built, AWS resources created (names/ARNs/regions), decisions, and review notes.
 
 ## Setup — 2026-09-23
-- Repo scaffolded with `frontend/`, `api/`, `lambdas/{lf0,lf1,lf2}`, `scripts/`, `docs/`.
+- Repo scaffolded with `frontend/`, `api/`, `lambda-functions/{lf0,lf1,lf2}`, `other-scripts/`, `docs/`.
 - Requirements and step plan in `docs/requirements.md` (includes extra credit).
 - AWS CLI configured. Account `088850687383`, region `us-east-1`. The old `cloud-class-lab-user` had almost no permissions, so the default profile now uses IAM user `cc-hw1-dev` (AdministratorAccess-style access, personal account).
 - Root MFA and a cost budget: set up by user.
@@ -19,14 +19,14 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 | EventBridge rule | `lf2-every-minute` | us-east-1 | `rate(1 minute)` → LF2 (**runs 24/7; disable when not testing**) |
 | SES identity | sender address from `.env` | us-east-1 | sandbox; verified |
 | SQS queue (Q1) | `dining-requests-q1` | us-east-1 | https://sqs.us-east-1.amazonaws.com/088850687383/dining-requests-q1 ; retention 1 day, visibility timeout 60s |
-| Lambda | `LF1` (python3.12) | us-east-1 | Lex code hook; env `QUEUE_URL`; `lambdas/lf1-lex-hook/lambda_function.py` |
+| Lambda | `LF1` (python3.12) | us-east-1 | Lex code hook; env `QUEUE_URL`; `lambda-functions/lf1-lex-hook/lambda_function.py` |
 | IAM role | `lf1-lex-hook-role` | global | basic exec + `sqs:SendMessage` on Q1 |
 | IAM role | `lex-hw1-bot-role` | global | Lex V2 bot service role (Polly/Comprehend) |
-| Lex V2 bot | `DiningConcierge` (id `R0153OSV9Z`) | us-east-1 | en_US; version 1; alias `prod` = `R4JQFJKHQG`; `TestBotAlias` (DRAFT) also hooked to LF1; built by `scripts/setup_lex_bot.py` |
+| Lex V2 bot | `DiningConcierge` (id `R0153OSV9Z`) | us-east-1 | en_US; version 1; alias `prod` = `R4JQFJKHQG`; `TestBotAlias` (DRAFT) also hooked to LF1; built by `other-scripts/setup_lex_bot.py` |
 | API Gateway REST API | `ai-customer-service-api` (id `hlvxdz60d2`) | us-east-1 | stage `v1`; `POST /chatbot` → LF0 (Lambda proxy), `OPTIONS` mock for CORS, auth NONE |
-| Lambda | `LF0` (python3.12) | us-east-1 | `lambdas/lf0-chat-api/lambda_function.py`; env `LEX_BOT_ID`, `LEX_BOT_ALIAS_ID`, `LEX_LOCALE_ID` |
+| Lambda | `LF0` (python3.12) | us-east-1 | `lambda-functions/lf0-chat-api/lambda_function.py`; env `LEX_BOT_ID`, `LEX_BOT_ALIAS_ID`, `LEX_LOCALE_ID` |
 | IAM role | `lf0-chat-api-role` | global | Lambda trust + `AWSLambdaBasicExecutionRole` + inline `call-lex` (`lex:RecognizeText` on the prod alias) |
-| S3 bucket (static website, public read) | `cc-hw1-chatbot-frontend-088850687383` | us-east-1 | http://cc-hw1-chatbot-frontend-088850687383.s3-website-us-east-1.amazonaws.com — index/error doc `chat.html`; redeploy with `scripts/deploy_frontend.sh` |
+| S3 bucket (static website, public read) | `cc-hw1-chatbot-frontend-088850687383` | us-east-1 | http://cc-hw1-chatbot-frontend-088850687383.s3-website-us-east-1.amazonaws.com — index/error doc `chat.html`; redeploy with `other-scripts/deploy_frontend.sh` |
 
 ## Step 1 — Frontend on S3
 - Starter copied into `frontend/`; Swagger spec in `api/swagger/swagger.yaml`.
@@ -46,14 +46,14 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 - Custom slot types: `CuisineType` (Chinese, Japanese, Italian, Mexican, Indian, Thai — these are the cuisines Step 5 must scrape) and `LocationType` (original-value resolution, so unknown cities reach LF1 and get a friendly rejection).
 - LF1: dialog hook validates location (Manhattan/NYC aliases only), cuisine, party size 1–20, email; fulfillment hook sends `{location, cuisine, diningTime, numberOfPeople, email}` to Q1 and confirms.
 - Tested via `aws lexv2-runtime recognize-text` with the PDF's example conversation (New Delhi rejected → Manhattan accepted → message in Q1). Test messages purged from Q1.
-- Gotchas: the Lex locale must be `NotBuilt` before adding slot types; a fresh bot version isn't describable for a few seconds; boto3 `list_bots` isn't pageable. Bot setup: `scripts/setup_lex_bot.py` (venv in `.venv`, git-ignored).
+- Gotchas: the Lex locale must be `NotBuilt` before adding slot types; a fresh bot version isn't describable for a few seconds; boto3 `list_bots` isn't pageable. Bot setup: `other-scripts/setup_lex_bot.py` (venv in `.venv`, git-ignored).
 - LF0 still returns the boilerplate — it calls Lex in Step 4.
 
 ## Step 4 — Lex integrated into LF0
 - LF0 calls Lex `RecognizeText`; session id from the browser goes in `messages[0].unstructured.id`. Details and test results in `DEVELOPMENT_NOTES.md`.
 
 ## Step 5 — Yelp → DynamoDB
-- `scripts/scrape_yelp.py` → `scripts/restaurants.json` (git-ignored); `scripts/load_dynamodb.py` → table. 1,198 items. Details in `DEVELOPMENT_NOTES.md`.
+- `other-scripts/scrape_yelp.py` → `other-scripts/restaurants.json` (git-ignored); `other-scripts/load_dynamodb.py` → table. 1,198 items. Details in `DEVELOPMENT_NOTES.md`.
 
 ## Step 7 — OpenSearch
 - Domain `dining-concierge` created; index `restaurants` loaded with 1,198 docs (`RestaurantID`, `Cuisine`, `type:Restaurant`). LF2 repointed at it and confirmed working end to end. Details in `DEVELOPMENT_NOTES.md`. **Domain is still running — delete after final testing/demo.**

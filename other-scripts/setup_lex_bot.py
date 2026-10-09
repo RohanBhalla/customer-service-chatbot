@@ -1,6 +1,6 @@
 """Create the DiningConcierge Lex V2 bot (intents, slots, alias with LF1 code hook).
 
-Usage: .venv/bin/python scripts/setup_lex_bot.py
+Usage: .venv/bin/python other-scripts/setup_lex_bot.py
 Re-running exits if the bot already exists; delete it in the Lex console first.
 """
 import sys

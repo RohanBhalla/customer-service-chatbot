@@ -1,7 +1,7 @@
 """Scrape ~200 Manhattan restaurants per cuisine from the Yelp Fusion API.
 
-Usage: .venv/bin/python scripts/scrape_yelp.py
-Reads YELP_API_KEY from .env, writes scripts/restaurants.json (git-ignored cache).
+Usage: .venv/bin/python other-scripts/scrape_yelp.py
+Reads YELP_API_KEY from .env, writes other-scripts/restaurants.json (git-ignored cache).
 Yelp's free tier allows 300 calls/day, so results are cached; re-run only to refresh.
 """
 import json

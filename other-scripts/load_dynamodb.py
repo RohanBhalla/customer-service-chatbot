@@ -1,6 +1,6 @@
-"""Load scripts/restaurants.json into the DynamoDB table `yelp-restaurants`.
+"""Load other-scripts/restaurants.json into the DynamoDB table `yelp-restaurants`.
 
-Usage: .venv/bin/python scripts/load_dynamodb.py
+Usage: .venv/bin/python other-scripts/load_dynamodb.py
 Adds `insertedAtTimestamp` (UTC ISO-8601) to every item. Safe to re-run: items are keyed
 by BusinessID, so a re-run overwrites rather than duplicates.
 """

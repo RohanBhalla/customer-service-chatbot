@@ -1,8 +1,8 @@
 """Create the `restaurants` index and load RestaurantID/Cuisine docs into OpenSearch.
 
-Usage: .venv/bin/python scripts/load_opensearch.py
+Usage: .venv/bin/python other-scripts/load_opensearch.py
 Reads OPENSEARCH_ENDPOINT/USER/PASSWORD from .env and restaurant data from
-data/yelp-restaurants.json (fall back to scripts/restaurants.json). Idempotent:
+data/yelp-restaurants.json (fall back to other-scripts/restaurants.json). Idempotent:
 re-running overwrites documents (indexed by BusinessID) rather than duplicating them.
 
 Note: modern OpenSearch dropped mapping "types" (one index = one implicit type).
@@ -41,13 +41,13 @@ AUTH = HTTPBasicAuth(USER, PASSWORD)
 
 
 def load_restaurants():
-    for rel in ("data/yelp-restaurants.json", "scripts/restaurants.json"):
+    for rel in ("data/yelp-restaurants.json", "other-scripts/restaurants.json"):
         path = os.path.join(ROOT, rel)
         if os.path.exists(path):
             print(f"Reading {rel}")
             with open(path) as f:
                 return json.load(f)
-    sys.exit("No restaurant data found (data/yelp-restaurants.json or scripts/restaurants.json).")
+    sys.exit("No restaurant data found (data/yelp-restaurants.json or other-scripts/restaurants.json).")
 
 
 def create_index():

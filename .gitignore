@@ -20,9 +20,9 @@ build/
 dist/
 
 # Scraper output and local Yelp data snapshots (not committed)
-scripts/*.json
+other-scripts/*.json
 data/*.json
-scripts/*.csv
+other-scripts/*.csv
 
 # OS / editor
 .DS_Store

@@ -28,10 +28,10 @@ Extra credit: DynamoDB state table remembers each user's last location + cuisine
 |------|---------|
 | `frontend/` | Chat UI (from the starter repo), hosted on S3 |
 | `api/` | Swagger spec + generated API Gateway SDK |
-| `lambdas/lf0-chat-api/` | LF0 — API Gateway handler, calls Lex |
-| `lambdas/lf1-lex-hook/` | LF1 — Lex dialog/fulfillment code hook, pushes to SQS |
-| `lambdas/lf2-queue-worker/` | LF2 — pulls SQS, queries OpenSearch + DynamoDB, sends SES email |
-| `scripts/` | Yelp scraper, DynamoDB/OpenSearch loaders |
+| `lambda-functions/lf0-chat-api/` | LF0 — API Gateway handler, calls Lex |
+| `lambda-functions/lf1-lex-hook/` | LF1 — Lex dialog/fulfillment code hook, pushes to SQS |
+| `lambda-functions/lf2-queue-worker/` | LF2 — pulls SQS, queries OpenSearch + DynamoDB, sends SES email |
+| `other-scripts/` | Yelp scraper, DynamoDB/OpenSearch loaders |
 | `docs/` | Assignment PDF, requirements, progress log |
 
 ## Working approach
