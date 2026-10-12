@@ -60,3 +60,23 @@ Record each step: what was built, AWS resources created (names/ARNs/regions), de
 
 ## Extra Credit — conversation state
 - New Lex slot `SameAsLastTime` (bot version 2, `prod` alias repointed). LF1 checks `user-search-state` when Location+Cuisine are filled; if they match the session's last search, asks to reuse; on yes, LF2 reuses the exact stored restaurant IDs instead of a fresh OpenSearch pick. Tested end to end (4 scenarios). Details in `DEVELOPMENT_NOTES.md`.
+
+## Teardown — 2026-10-12
+Evaluation complete; all live AWS resources decommissioned (code, Lex bot config, and the scraped
+Yelp dataset remain fully preserved in this repo — `other-scripts/setup_lex_bot.py` +
+`other-scripts/update_lex_add_state_slot.py` rebuild the bot from scratch; `data/yelp-restaurants.json`
++ `other-scripts/load_dynamodb.py` / `load_opensearch.py` reload the data — so the whole stack can be
+stood back up from this repo alone if ever needed again).
+
+Deleted, in order: EventBridge rule `lf2-every-minute` → OpenSearch domain `dining-concierge` →
+Lambdas `LF0`/`LF1`/`LF2` → API Gateway `ai-customer-service-api` → Lex bot `DiningConcierge` →
+SQS queue `dining-requests-q1` → DynamoDB tables `yelp-restaurants`/`user-search-state` → S3 bucket
+`cc-hw1-chatbot-frontend-088850687383` (emptied first) → IAM roles `lf0-chat-api-role`,
+`lf1-lex-hook-role`, `lf2-queue-worker-role`, `lex-hw1-bot-role` (inline/attached policies removed first).
+
+**Left in place (no ongoing cost):** the SES identity `rb5015@nyu.edu` — stays verified in case SES
+is needed again; deleting and re-verifying later costs nothing either way, so it wasn't removed.
+
+Verified via a fresh `list-*`/`describe-*` sweep immediately after: everything gone except OpenSearch,
+which was still mid-deletion (`Deleted: true`, `Processing: true`) — normal, since teardown takes the
+same 10–20 min as creation did; billing stops the moment deletion is requested, not once it finishes.
